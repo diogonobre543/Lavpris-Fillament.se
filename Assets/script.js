@@ -1,9 +1,11 @@
 /**
  * BILLIGT FILAMENT - JAVASCRIPT ENGINE 2026
- * Slutversion: Skyltproduktion Edition
+ * Slutversion: Skyltproduktion Edition (Updated API)
  */
 
-const API_URL = 'https://www.datamarked.dk/?id=8016&apikey=AA99444E55D533FA3C0FB91A991CCA2C465F7C2BE0C89C4826A1852957DE2959';
+// Nova API fornecida
+const API_URL = 'https://www.datamarked.dk/?id=8016&apikey=A279FD866D217BCED39AF873B8B3115648559A5DA135AAB640C5DA0C487F7C5F';
+
 let allProducts = [];
 let activeCategory = 'all';
 
@@ -26,12 +28,9 @@ function initNavigation() {
     hamburger.addEventListener('click', () => {
         hamburger.classList.toggle('open');
         mainNav.classList.toggle('active');
-        
-        // Hindra scroll på sidan när menyn är öppen
         document.body.style.overflow = mainNav.classList.contains('active') ? 'hidden' : 'auto';
     });
 
-    // Stäng meny när en länk klickas
     const navLinks = mainNav.querySelectorAll('a');
     navLinks.forEach(link => {
         link.addEventListener('click', () => {
@@ -48,11 +47,15 @@ function initNavigation() {
 async function loadProducts() {
     try {
         const response = await fetch(API_URL);
+        if (!response.ok) throw new Error("Network response was not ok");
+        
         const data = await response.json();
 
         allProducts = data.map(i => {
-            const titleUpper = i.title.toUpperCase();
+            const titleUpper = (i.title || "").toUpperCase();
             let cat = 'ANDRA';
+            
+            // Logik för kategorisering
             if (printerKeywords.some(k => titleUpper.includes(k))) {
                 cat = 'PRINTER';
             } else {
@@ -61,13 +64,13 @@ async function loadProducts() {
             }
 
             return {
-                title: i.title,
-                price: parseFloat(String(i.price).replace(',', '.')),
-                img: i.image,
-                link: i.link,
+                title: i.title || "Namnlös produkt",
+                price: typeof i.price === 'string' ? parseFloat(i.price.replace(',', '.')) : parseFloat(i.price) || 0,
+                img: i.image || i.img || 'https://via.placeholder.com/300', // Fallback om bild saknas
+                link: i.link || '#',
                 stock: parseInt(i.stock) || 0,
                 category: cat,
-                description: i.description || `Högkvalitativt ${cat}-filament för professionell 3D-utskrift. Detta material garanterar extrem precision, stark vidhäftning och en fin yta på alla dina projekt.`
+                description: i.description || `Högkvalitativt ${cat}-material för professionell 3D-utskrift. Optimerad för precision och hållbarhet.`
             };
         });
 
@@ -79,6 +82,8 @@ async function loadProducts() {
 
     } catch (error) {
         console.error("Fel vid API-laddning:", error);
+        const grid = document.getElementById('productGrid');
+        if (grid) grid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; padding: 50px;">Kunde inte ladda produkter just nu. Försök igen senare.</p>`;
     }
 }
 
@@ -101,9 +106,10 @@ function renderGrid() {
     if (sort === 'low') list.sort((a, b) => a.price - b.price);
     if (sort === 'high') list.sort((a, b) => b.price - a.price);
     
-    // Begränsa på startsidan
-    if (window.location.pathname.includes('index.html') || window.location.pathname === '/') {
-        if (search === '' && activeCategory === 'all') list = list.slice(0, 8);
+    // Begränsa på startsidan (index.html)
+    const isHomePage = window.location.pathname.includes('index.html') || window.location.pathname.endsWith('/');
+    if (isHomePage && search === '' && activeCategory === 'all') {
+        list = list.slice(0, 8);
     }
 
     grid.innerHTML = list.map(p => `
@@ -142,23 +148,23 @@ function renderProductDetail() {
                     ${product.stock > 0 ? '● I LAGER' : '○ SLUT'}
                 </span>
                 <h1 style="margin: 10px 0;">${product.title}</h1>
-                <div class="detail-price" style="font-size: 2rem; font-weight: 800; color: var(--primary); margin-bottom: 20px;">
+                <div class="detail-price" style="font-size: 2rem; font-weight: 800; color: var(--primary, #000); margin-bottom: 20px;">
                     ${formatPrice(product.price)} kr.
                 </div>
                 
-                <div class="meta-box" style="background: var(--ice); padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                <div class="meta-box" style="background: #f1f5f9; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
                     <p style="margin-bottom: 8px;"><strong>Kategori:</strong> ${product.category}</p>
                     <p><strong>Lagerstatus:</strong> ${product.stock} st.</p>
                 </div>
 
                 <div class="product-description" style="margin-bottom: 30px;">
-                    <h4 style="text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; color: var(--slate); margin-bottom: 10px;">Beskrivning</h4>
+                    <h4 style="text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; color: #64748b; margin-bottom: 10px;">Beskrivning</h4>
                     <p style="line-height: 1.8; color: #475569;">${product.description}</p>
                 </div>
 
                 <a href="${product.link}" target="_blank" class="btn-buy" 
-                   style="padding: 20px; font-size: 1.1rem; width: 100%; display: block; text-align: center; text-decoration: none; border-radius: 12px;">
-                   SKYLTPRODUKTION
+                   style="padding: 20px; font-size: 1.1rem; width: 100%; display: block; text-align: center; text-decoration: none; border-radius: 12px; background: var(--primary, #000); color: #fff;">
+                    SKYLTPRODUKTION
                 </a>
             </div>
         `;
@@ -166,7 +172,7 @@ function renderProductDetail() {
 }
 
 /**
- * 5. HERO (HEMSIDA)
+ * 5. HERO (RANDOM UTVALDA)
  */
 function renderHero() {
     const pBox = document.getElementById('hero-random-printer');
@@ -177,12 +183,12 @@ function renderHero() {
     const mats = allProducts.filter(p => p.category !== 'PRINTER' && p.category !== 'ANDRA');
 
     const card = (item) => `
-        <div class="product-card" style="width: 220px; box-shadow: var(--shadow);">
-            <div class="img-wrapper" style="height: 160px;"><img src="${item.img}"></div>
+        <div class="product-card" style="width: 220px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+            <div class="img-wrapper" style="height: 160px;"><img src="${item.img}" style="object-fit: contain;"></div>
             <div class="product-info" style="padding: 10px;">
-                <h3 style="font-size: 0.85rem; min-height: 2.2rem;">${item.title}</h3>
+                <h3 style="font-size: 0.85rem; min-height: 2.2rem; margin: 5px 0;">${item.title}</h3>
                 <div class="price" style="font-size: 1.1rem; margin-bottom: 10px;">${formatPrice(item.price)} kr.</div>
-                <a href="./product-detail.html?title=${encodeURIComponent(item.title)}" class="btn-details" style="font-size: 0.75rem; padding: 8px; display: block;">Se detaljer</a>
+                <a href="./product-detail.html?title=${encodeURIComponent(item.title)}" class="btn-details" style="font-size: 0.75rem; padding: 8px; display: block; text-align: center;">Se detaljer</a>
             </div>
         </div>`;
     
