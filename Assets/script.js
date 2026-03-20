@@ -1,9 +1,8 @@
 /**
  * BILLIGT FILAMENT - JAVASCRIPT ENGINE 2026
- * Slutversion: Skyltproduktion Edition (Updated API)
+ * Slutversion: Skyltproduktion Edition
  */
 
-// Nova API fornecida
 const API_URL = 'https://www.datamarked.dk/?id=8016&apikey=A279FD866D217BCED39AF873B8B3115648559A5DA135AAB640C5DA0C487F7C5F';
 
 let allProducts = [];
@@ -13,31 +12,21 @@ let activeCategory = 'all';
 const materialKeywords = ['PLA', 'PETG', 'SILK', 'ABS', 'TPU', 'ASA', 'NYLON', 'WOOD', 'CARBON'];
 const printerKeywords = ['PRINTER', 'CREALITY', 'BAMBU', 'ANYCUBIC', 'ENDER', 'VORON', 'ELEGOO', 'MACHINE', 'RESIN'];
 
-// Valutaformat (Dansk / kr)
-const formatPrice = (p) => p.toLocaleString('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Valutaformat (Dansk / kr) - 1.234,56 kr.
+const formatPrice = (p) => p.toLocaleString('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kr.';
 
 /**
- * 1. MOBILNAVIGATION (HAMBURGER)
+ * 1. MOBILNAVIGATION
  */
 function initNavigation() {
     const hamburger = document.getElementById('hamburger');
     const mainNav = document.getElementById('main-nav');
-    
     if (!hamburger || !mainNav) return;
 
     hamburger.addEventListener('click', () => {
         hamburger.classList.toggle('open');
         mainNav.classList.toggle('active');
         document.body.style.overflow = mainNav.classList.contains('active') ? 'hidden' : 'auto';
-    });
-
-    const navLinks = mainNav.querySelectorAll('a');
-    navLinks.forEach(link => {
-        link.addEventListener('click', () => {
-            hamburger.classList.remove('open');
-            mainNav.classList.remove('active');
-            document.body.style.overflow = 'auto';
-        });
     });
 }
 
@@ -47,15 +36,12 @@ function initNavigation() {
 async function loadProducts() {
     try {
         const response = await fetch(API_URL);
-        if (!response.ok) throw new Error("Network response was not ok");
-        
         const data = await response.json();
 
         allProducts = data.map(i => {
             const titleUpper = (i.title || "").toUpperCase();
             let cat = 'ANDRA';
             
-            // Logik för kategorisering
             if (printerKeywords.some(k => titleUpper.includes(k))) {
                 cat = 'PRINTER';
             } else {
@@ -63,27 +49,28 @@ async function loadProducts() {
                 cat = found || 'ANDRA';
             }
 
+            // USANDO SALEPRICE COMO PRIORIDADE
+            const rawPrice = i.saleprice || i.price || "0";
+            const cleanPrice = typeof rawPrice === 'string' ? parseFloat(rawPrice.replace(',', '.')) : parseFloat(rawPrice);
+
             return {
-                title: i.title || "Namnlös produkt",
-                price: typeof i.price === 'string' ? parseFloat(i.price.replace(',', '.')) : parseFloat(i.price) || 0,
-                img: i.image || i.img || 'https://via.placeholder.com/300', // Fallback om bild saknas
-                link: i.link || '#',
+                title: i.title,
+                price: cleanPrice,
+                img: i.image,
+                link: i.link,
                 stock: parseInt(i.stock) || 0,
                 category: cat,
-                description: i.description || `Högkvalitativt ${cat}-material för professionell 3D-utskrift. Optimerad för precision och hållbarhet.`
+                description: i.description || `Højkvalitets ${cat} filament til professionel 3D-print.`
             };
         });
 
-        // Initiera vyer
         renderHero();
         renderGrid();
         renderProductDetail();
         createFilterButtons();
 
     } catch (error) {
-        console.error("Fel vid API-laddning:", error);
-        const grid = document.getElementById('productGrid');
-        if (grid) grid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; padding: 50px;">Kunde inte ladda produkter just nu. Försök igen senare.</p>`;
+        console.error("Erro ao carregar API:", error);
     }
 }
 
@@ -106,10 +93,8 @@ function renderGrid() {
     if (sort === 'low') list.sort((a, b) => a.price - b.price);
     if (sort === 'high') list.sort((a, b) => b.price - a.price);
     
-    // Begränsa på startsidan (index.html)
-    const isHomePage = window.location.pathname.includes('index.html') || window.location.pathname.endsWith('/');
-    if (isHomePage && search === '' && activeCategory === 'all') {
-        list = list.slice(0, 8);
+    if (window.location.pathname.includes('index.html') || window.location.pathname === '/') {
+        if (search === '' && activeCategory === 'all') list = list.slice(0, 8);
     }
 
     grid.innerHTML = list.map(p => `
@@ -117,10 +102,10 @@ function renderGrid() {
             <div class="img-wrapper"><img src="${p.img}" loading="lazy" alt="${p.title}"></div>
             <div class="product-info">
                 <h3>${p.title}</h3>
-                <div class="price">${formatPrice(p.price)} kr.</div>
+                <div class="price">${formatPrice(p.price)}</div>
                 <div class="product-actions">
-                    <a href="./product-detail.html?title=${encodeURIComponent(p.title)}" class="btn-details">Läs mer</a>
-                    <a href="${p.link}" target="_blank" class="btn-buy">SKYLTPRODUKTION</a>
+                    <a href="./product-detail.html?title=${encodeURIComponent(p.title)}" class="btn-details">Læs mer</a>
+                    <a href="${p.link}" target="_blank" class="btn-buy">KØB NU</a>
                 </div>
             </div>
         </article>
@@ -145,26 +130,26 @@ function renderProductDetail() {
             </div>
             <div class="detail-content">
                 <span class="stock-tag" style="font-weight:800; color: ${product.stock > 0 ? '#10b981' : '#ef4444'}">
-                    ${product.stock > 0 ? '● I LAGER' : '○ SLUT'}
+                    ${product.stock > 0 ? '● PÅ LAGER' : '○ UDSOLGT'}
                 </span>
                 <h1 style="margin: 10px 0;">${product.title}</h1>
-                <div class="detail-price" style="font-size: 2rem; font-weight: 800; color: var(--primary, #000); margin-bottom: 20px;">
-                    ${formatPrice(product.price)} kr.
+                <div class="detail-price" style="font-size: 2rem; font-weight: 800; color: #b91c1c; margin-bottom: 20px;">
+                    ${formatPrice(product.price)}
                 </div>
                 
                 <div class="meta-box" style="background: #f1f5f9; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
                     <p style="margin-bottom: 8px;"><strong>Kategori:</strong> ${product.category}</p>
-                    <p><strong>Lagerstatus:</strong> ${product.stock} st.</p>
+                    <p><strong>Lagerstatus:</strong> ${product.stock} stk.</p>
                 </div>
 
                 <div class="product-description" style="margin-bottom: 30px;">
-                    <h4 style="text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; color: #64748b; margin-bottom: 10px;">Beskrivning</h4>
+                    <h4 style="text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; color: #64748b; margin-bottom: 10px;">Beskrivelse</h4>
                     <p style="line-height: 1.8; color: #475569;">${product.description}</p>
                 </div>
 
                 <a href="${product.link}" target="_blank" class="btn-buy" 
-                   style="padding: 20px; font-size: 1.1rem; width: 100%; display: block; text-align: center; text-decoration: none; border-radius: 12px; background: var(--primary, #000); color: #fff;">
-                    SKYLTPRODUKTION
+                   style="padding: 20px; font-size: 1.1rem; width: 100%; display: block; text-align: center; text-decoration: none; border-radius: 12px; background: #2563eb; color: #fff;">
+                    KØB NU
                 </a>
             </div>
         `;
@@ -172,7 +157,7 @@ function renderProductDetail() {
 }
 
 /**
- * 5. HERO (RANDOM UTVALDA)
+ * 5. HERO & 6. FILTRO (Mantidos com traduções)
  */
 function renderHero() {
     const pBox = document.getElementById('hero-random-printer');
@@ -187,8 +172,8 @@ function renderHero() {
             <div class="img-wrapper" style="height: 160px;"><img src="${item.img}" style="object-fit: contain;"></div>
             <div class="product-info" style="padding: 10px;">
                 <h3 style="font-size: 0.85rem; min-height: 2.2rem; margin: 5px 0;">${item.title}</h3>
-                <div class="price" style="font-size: 1.1rem; margin-bottom: 10px;">${formatPrice(item.price)} kr.</div>
-                <a href="./product-detail.html?title=${encodeURIComponent(item.title)}" class="btn-details" style="font-size: 0.75rem; padding: 8px; display: block; text-align: center;">Se detaljer</a>
+                <div class="price" style="font-size: 1.1rem; margin-bottom: 10px;">${formatPrice(item.price)}</div>
+                <a href="./product-detail.html?title=${encodeURIComponent(item.title)}" class="btn-details" style="font-size: 0.75rem; padding: 8px; display: block; text-align: center;">Læs mer</a>
             </div>
         </div>`;
     
@@ -196,9 +181,6 @@ function renderHero() {
     if (mats.length) mBox.innerHTML = card(mats[Math.floor(Math.random() * mats.length)]);
 }
 
-/**
- * 6. FILTERKNAPPAR
- */
 function createFilterButtons() {
     const box = document.getElementById('materialBoxes');
     if (!box) return;
@@ -206,7 +188,7 @@ function createFilterButtons() {
     const cats = ['all', 'PRINTER', ...new Set(allProducts.map(p => p.category).filter(c => c !== 'PRINTER' && c !== 'ANDRA'))].sort();
     box.innerHTML = cats.map(c => `
         <button class="material-btn ${c === activeCategory ? 'active' : ''}" onclick="changeCategory('${c}')">
-            ${c === 'all' ? 'Alla' : c}
+            ${c === 'all' ? 'Alle' : c}
         </button>
     `).join('');
 }
@@ -217,11 +199,9 @@ window.changeCategory = (cat) => {
     renderGrid();
 };
 
-// Global initiering
 document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     loadProducts();
-    
     document.getElementById('searchField')?.addEventListener('input', renderGrid);
     document.getElementById('sortOrder')?.addEventListener('change', renderGrid);
 });
